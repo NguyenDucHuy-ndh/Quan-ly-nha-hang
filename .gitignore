@@ -41,3 +41,75 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# //////////////////////////////////
+# Flutter/Dart/Pub related
+.dart_tool/
+.packages
+.pub-cache/
+build/
+flutter_export_environment.sh
+flutter_export_environment.bat
+
+# Firebase related
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Android related
+android/.gradle/
+android/app/build/
+android/local.properties
+android/.idea/
+
+# iOS related
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework/
+ios/Flutter/Generated.xcconfig
+ios/.generated/
+ios/Runner.xcworkspace/
+ios/Runner.xcodeproj/project.xcworkspace/
+
+# Web related
+web/.dart_tool/
+web/.packages
+
+# macOS related
+macos/Flutter/ephemeral/
+macos/Flutter/Flutter.framework/
+macos/Flutter/Flutter.podspec
+macos/Flutter/App.framework/
+macos/Flutter/Generated.xcconfig
+macos/.generated/
+macos/Pods/
+macos/.symlinks/
+
+# Windows related
+windows/flutter/ephemeral/
+
+# Linux related
+linux/flutter/ephemeral/
+
+# VS Code related
+.vscode/
+.idea/
+
+# Miscellaneous
+*.log
+*.tmp
+*.swp
+*.lock
+*.iml
+*.DS_Store
+*.class
+*.pyc
+*.pyo
+*.so
+*.bak
+*.orig
+*.rej
+*.sublime-workspace
+*.sublime-project
