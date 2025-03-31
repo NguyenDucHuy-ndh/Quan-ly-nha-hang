@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/firebase_options.dart';
 import 'package:quanly_nhahang/screens/auth/login_screen.dart';
 import 'package:quanly_nhahang/screens/auth/register_screen.dart';
+import 'package:quanly_nhahang/screens/home/bottom_navigation_screen.dart';
 import 'package:quanly_nhahang/screens/home/home_screen.dart';
 
 Future<void> main() async {
@@ -10,6 +12,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(MyApp());
 }
 
@@ -25,7 +28,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const LoginScreen(), // Màn hình đăng nhập
         '/register': (context) => RegisterScreen(), // Màn hình đăng ký
 //        '/forgot-password': (context) => ForgotPasswordScreen(), // Màn hình quên mật khẩu
-        '/home': (context) => const HomeScreen(), // Màn hình chính
+        '/home': (context) => BottomNavigationScreen(), // Màn hình chính
       },
     );
   }
