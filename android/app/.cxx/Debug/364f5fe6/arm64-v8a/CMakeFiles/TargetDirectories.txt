@@ -1,0 +1,2 @@
+D:/hoc/btlAndroi/Quan-ly-nha-hang/android/app/.cxx/Debug/364f5fe6/arm64-v8a/CMakeFiles/edit_cache.dir
+D:/hoc/btlAndroi/Quan-ly-nha-hang/android/app/.cxx/Debug/364f5fe6/arm64-v8a/CMakeFiles/rebuild_cache.dir

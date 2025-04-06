@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/data/sample_data.dart';
+import 'package:quanly_nhahang/screens/ho_so_screen.dart';
 import 'package:quanly_nhahang/screens/home/order_screen.dart';
 import 'package:quanly_nhahang/screens/home/table_screen.dart';
 
@@ -15,7 +16,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     HomeScreen(), // Trang chủ
     TableScreen(), // Bàn
     OrderScreen(), // Đơn hàng
-    ProfileScreen(), // Hồ sơ
+    Hoso(), // Hồ sơ
   ];
 
   void _onItemTapped(int index) {
