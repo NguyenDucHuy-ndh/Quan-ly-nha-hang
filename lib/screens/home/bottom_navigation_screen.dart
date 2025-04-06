@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:quanly_nhahang/screens/home/home_screen.dart';
+import 'package:quanly_nhahang/data/sample_data.dart';
+import 'package:quanly_nhahang/screens/home/order_screen.dart';
+import 'package:quanly_nhahang/screens/home/table_screen.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
   @override
@@ -11,8 +13,8 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
 
   final List<Widget> _screens = [
     HomeScreen(), // Trang chủ
-    OrderScreen(), // Đơn hàng
     TableScreen(), // Bàn
+    OrderScreen(), // Đơn hàng
     ProfileScreen(), // Hồ sơ
   ];
 
@@ -25,6 +27,30 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Xử lý thông báo
+            },
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          children: [
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Đăng xuất'),
+              onTap: () {
+                // Đăng xuất và điều hướng về màn hình đăng nhập
+                Navigator.pushReplacementNamed(context, '/');
+              },
+            ),
+          ],
+        ),
+      ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -33,12 +59,12 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
             label: 'Trang chủ',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.restaurant_menu),
-            label: 'Đơn hàng',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.table_restaurant),
             label: 'Bàn',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.restaurant_menu),
+            label: 'Đơn hàng',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -55,20 +81,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   }
 }
 
-// Các màn hình khác
-class OrderScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Đơn hàng',
-        style: TextStyle(fontSize: 18),
-      ),
-    );
-  }
-}
-
-class TableScreen extends StatelessWidget {
+class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(

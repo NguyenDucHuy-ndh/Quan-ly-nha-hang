@@ -7,7 +7,6 @@ class MenuItem {
   final String categoryId;
   final String? imageUrl;
   final bool available;
-  final int preparationTime;
 
   MenuItem({
     required this.id,
@@ -17,7 +16,6 @@ class MenuItem {
     required this.categoryId,
     this.imageUrl,
     required this.available,
-    required this.preparationTime,
   });
 
   factory MenuItem.fromMap(Map<String, dynamic> map, String id) {
@@ -29,7 +27,6 @@ class MenuItem {
       categoryId: map['categoryId'],
       imageUrl: map['imageUrl'],
       available: map['available'],
-      preparationTime: map['preparationTime'],
     );
   }
 
@@ -41,7 +38,6 @@ class MenuItem {
       'categoryId': categoryId,
       'imageUrl': imageUrl,
       'available': available,
-      'preparationTime': preparationTime,
     };
   }
 }

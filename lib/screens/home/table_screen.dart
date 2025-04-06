@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quanly_nhahang/models/table.dart' as TableModel;
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class TableScreen extends StatelessWidget {
+  const TableScreen({super.key});
 
   // Lấy danh sách bàn từ Firestore
   Stream<List<TableModel.Table>> _getTables() {
@@ -29,25 +29,19 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  // Hàm cập nhật trạng thái bàn trong Firestore
+  Future<void> _updateTableStatus(String tableId, String newStatus) async {
+    await FirebaseFirestore.instance
+        .collection('tables')
+        .doc(tableId)
+        .update({'status': newStatus});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quản lý nhà hàng'),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          children: [
-            ListTile(
-              leading: Icon(Icons.logout),
-              title: Text('Đăng xuất'),
-              onTap: () {
-                // Đăng xuất và điều hướng về màn hình đăng nhập
-                Navigator.pushReplacementNamed(context, '/');
-              },
-            ),
-          ],
-        ),
       ),
       body: StreamBuilder<List<TableModel.Table>>(
         stream: _getTables(),
@@ -77,38 +71,48 @@ class HomeScreen extends StatelessWidget {
             itemCount: tables.length,
             itemBuilder: (context, index) {
               final table = tables[index];
-              return Card(
-                color: _getStatusColor(table.status),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Bàn ${table.tableNumber}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+              return InkWell(
+                onTap: () async {
+                  // Điều hướng đến màn hình order món và truyền thông tin bàn
+                  Navigator.pushNamed(
+                    context,
+                    '/order',
+                    arguments: table,
+                  );
+                },
+                child: Card(
+                  color: _getStatusColor(table.status),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Bàn ${table.tableNumber}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sức chứa: ${table.capacity}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
+                        const SizedBox(height: 8),
+                        Text(
+                          'Sức chứa: ${table.capacity}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Trạng thái: ${table.status}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
+                        const SizedBox(height: 8),
+                        Text(
+                          'Trạng thái: ${table.status}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
