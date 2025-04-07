@@ -2,18 +2,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/models/menu_category.dart';
 import 'package:quanly_nhahang/models/table.dart' as TableModel;
+import 'package:quanly_nhahang/screens/order/cart_screen.dart';
+import 'package:quanly_nhahang/screens/order/menu_items_screen.dart';
 
-class OrderScreen extends StatefulWidget {
-  const OrderScreen({Key? key}) : super(key: key);
+class PlaceOrderScreen extends StatefulWidget {
+  final TableModel.Table table;
+  const PlaceOrderScreen({Key? key, required this.table}) : super(key: key);
 
   @override
-  State<OrderScreen> createState() => _OrderScreenState();
+  State<PlaceOrderScreen> createState() => _PlaceOrderScreenState();
 }
 
-class _OrderScreenState extends State<OrderScreen> {
+class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
   Stream<DocumentSnapshot>? tableStream;
   Stream<QuerySnapshot>? menuCategoriesStream;
   TableModel.Table? currentTable;
+  String? selectedCategoryId;
+  Stream<QuerySnapshot>? menuItemsStream;
 
   @override
   void initState() {
@@ -24,20 +29,11 @@ class _OrderScreenState extends State<OrderScreen> {
         .orderBy('order')
         .snapshots();
 
-    // Get table from arguments
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final table =
-          ModalRoute.of(context)?.settings.arguments as TableModel.Table?;
-      if (table != null) {
-        setState(() {
-          currentTable = table;
-          tableStream = FirebaseFirestore.instance
-              .collection('tables')
-              .doc(table.id)
-              .snapshots();
-        });
-      }
-    });
+    currentTable = widget.table;
+    tableStream = FirebaseFirestore.instance
+        .collection('tables')
+        .doc(widget.table.id)
+        .snapshots();
   }
 
   Future<void> _updateTableStatus(String tableId, String newStatus) async {
@@ -85,6 +81,18 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
+  // Add these methods
+  void _selectCategory(String categoryId) {
+    setState(() {
+      selectedCategoryId = categoryId;
+      menuItemsStream = FirebaseFirestore.instance
+          .collection('menu_categories')
+          .doc(categoryId)
+          .collection('items')
+          .snapshots();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (currentTable == null || tableStream == null) {
@@ -96,6 +104,22 @@ class _OrderScreenState extends State<OrderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Order món - Bàn ${currentTable!.tableNumber}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CartScreen(
+                    tableId: currentTable!.id,
+                    currentOrderId: currentTable!.currentOrderId,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: tableStream,
@@ -206,7 +230,15 @@ class _OrderScreenState extends State<OrderScreen> {
             return Card(
               child: InkWell(
                 onTap: () {
-                  print('Selected category: ${category.name}');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MenuItemsScreen(
+                        category: category,
+                        tableId: currentTable!.id,
+                      ),
+                    ),
+                  );
                 },
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

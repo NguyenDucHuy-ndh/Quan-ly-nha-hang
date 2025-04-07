@@ -1,11 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/firebase_options.dart';
 import 'package:quanly_nhahang/screens/auth/login_screen.dart';
 import 'package:quanly_nhahang/screens/auth/register_screen.dart';
 import 'package:quanly_nhahang/screens/home/bottom_navigation_screen.dart';
-import 'package:quanly_nhahang/screens/home/order_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +27,6 @@ class MyApp extends StatelessWidget {
         '/register': (context) => RegisterScreen(), // Màn hình đăng ký
 //        '/forgot-password': (context) => ForgotPasswordScreen(), // Màn hình quên mật khẩu
         '/home': (context) => BottomNavigationScreen(),
-        '/order': (context) => OrderScreen(),
       },
     );
   }
