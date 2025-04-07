@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/data/sample_data.dart';
-import 'package:quanly_nhahang/screens/ho_so_screen.dart';
+import 'package:quanly_nhahang/screens/profile_screen.dart';
 import 'package:quanly_nhahang/screens/home/order_screen.dart';
 import 'package:quanly_nhahang/screens/home/table_screen.dart';
+import 'package:quanly_nhahang/models/user_model.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
+  final UserModel userModel;
+
+  const BottomNavigationScreen({Key? key, required this.userModel})
+      : super(key: key);
   @override
   _BottomNavigationScreenState createState() => _BottomNavigationScreenState();
 }
@@ -12,12 +17,19 @@ class BottomNavigationScreen extends StatefulWidget {
 class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    HomeScreen(), // Trang chủ
-    TableScreen(), // Bàn
-    OrderScreen(), // Đơn hàng
-    Hoso(), // Hồ sơ
-  ];
+  late final List<Widget> _screens; // Thay đổi thành late
+
+  @override
+  void initState() {
+    super.initState();
+    // Khởi tạo _screens trong initState
+    _screens = [
+      HomeScreen(),
+      TableScreen(),
+      OrderScreen(),
+      ProfileScreen(userModel: widget.userModel),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -94,14 +106,14 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Hồ sơ',
-        style: TextStyle(fontSize: 18),
-      ),
-    );
-  }
-}
+// class ProfileScreen extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return const Center(
+//       child: Text(
+//         'Hồ sơ',
+//         style: TextStyle(fontSize: 18),
+//       ),
+//     );
+//   }
+// }
