@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/firebase_options.dart';
@@ -29,6 +28,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/order': (context) => OrderScreen(),
+
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/home') {

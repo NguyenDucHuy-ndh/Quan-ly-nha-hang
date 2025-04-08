@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quanly_nhahang/models/table.dart' as TableModel;
+import 'package:quanly_nhahang/screens/order/place_order_screen.dart';
 
 class TableScreen extends StatelessWidget {
   const TableScreen({super.key});
@@ -73,12 +74,20 @@ class TableScreen extends StatelessWidget {
               final table = tables[index];
               return InkWell(
                 onTap: () async {
-                  // Điều hướng đến màn hình order món và truyền thông tin bàn
-                  Navigator.pushNamed(
-                    context,
-                    '/order',
-                    arguments: table,
-                  );
+                  print('Bắt đầu chuyển màn hình');
+                  print(
+                      'Thông tin bàn: ${table.id}, ${table.tableNumber}, ${table.status}');
+                  try {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PlaceOrderScreen(table: table),
+                      ),
+                    );
+                    print('Đã gọi Navigator.push');
+                  } catch (e) {
+                    print('Lỗi khi chuyển màn hình: $e');
+                  }
                 },
                 child: Card(
                   color: _getStatusColor(table.status),

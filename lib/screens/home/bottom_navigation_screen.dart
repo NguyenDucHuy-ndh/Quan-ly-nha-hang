@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:quanly_nhahang/data/sample_data.dart';
-import 'package:quanly_nhahang/screens/profile_screen.dart';
-import 'package:quanly_nhahang/screens/home/order_screen.dart';
+import 'package:quanly_nhahang/screens/ho_so_screen.dart';
+import 'package:quanly_nhahang/screens/home/home_screen.dart';
+import 'package:quanly_nhahang/screens/order/order_screen.dart';
 import 'package:quanly_nhahang/screens/home/table_screen.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
 
@@ -68,16 +68,16 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Trang chủ',
+            icon: Icon(Icons.payments),
+            label: 'Cashier',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.table_restaurant),
-            label: 'Bàn',
+            label: 'Waiter',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.restaurant_menu),
-            label: 'Đơn hàng',
+            label: 'Kichen',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -93,7 +93,6 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     );
   }
 }
-
 class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

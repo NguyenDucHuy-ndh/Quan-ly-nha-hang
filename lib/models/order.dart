@@ -28,13 +28,13 @@ class Order {
   factory Order.fromMap(Map<String, dynamic> map, String id) {
     return Order(
       id: id,
-      tableId: map['tableId'],
-      status: map['status'],
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
-      totalAmount: map['totalAmount'].toDouble(),
-      isPaid: map['isPaid'],
-      serverId: map['serverId'],
+      tableId: map['tableId'] ?? '',
+      status: map['status'] ?? 'pending',
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      totalAmount: (map['totalAmount'] ?? 0).toDouble(),
+      isPaid: map['isPaid'] ?? false,
+      serverId: map['serverId'] ?? '',
     );
   }
 
