@@ -26,7 +26,7 @@ class UserModel {
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
           : null,
-      role: map['role'] ?? 'staff', // Mặc định là staff
+      role: map['role'] ?? 'customer', // Mặc định là customer
     );
   }
 

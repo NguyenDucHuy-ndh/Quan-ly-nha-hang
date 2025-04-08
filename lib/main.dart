@@ -4,6 +4,8 @@ import 'package:quanly_nhahang/firebase_options.dart';
 import 'package:quanly_nhahang/screens/auth/login_screen.dart';
 import 'package:quanly_nhahang/screens/auth/register_screen.dart';
 import 'package:quanly_nhahang/screens/home/bottom_navigation_screen.dart';
+import 'package:quanly_nhahang/screens/home/order_screen.dart';
+import 'package:quanly_nhahang/models/user_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,12 +23,21 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      initialRoute: '/', // Đặt route mặc định
+      initialRoute: '/',
       routes: {
-        '/': (context) => const LoginScreen(), // Màn hình đăng nhập
-        '/register': (context) => RegisterScreen(), // Màn hình đăng ký
-//        '/forgot-password': (context) => ForgotPasswordScreen(), // Màn hình quên mật khẩu
-        '/home': (context) => BottomNavigationScreen(),
+        '/': (context) => const LoginScreen(),
+        '/register': (context) => RegisterScreen(),
+        '/order': (context) => OrderScreen(),
+
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/home') {
+          final userModel = settings.arguments as UserModel;
+          return MaterialPageRoute(
+            builder: (context) => BottomNavigationScreen(userModel: userModel),
+          );
+        }
+        return null;
       },
     );
   }

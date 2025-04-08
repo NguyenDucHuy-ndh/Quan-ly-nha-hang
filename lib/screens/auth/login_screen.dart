@@ -45,7 +45,18 @@ class _LoginScreenState extends State<LoginScreen> {
       UserModel? user = await _authService.logIn(email, password);
       if (user != null) {
         // Chuyển hướng đến màn hình chính nếu đăng nhập thành công
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: UserModel(
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoUrl: user.photoUrl,
+            createdAt: user.createdAt ?? DateTime.now(),
+            role: 'customer',
+          ),
+        );
       } else {
         setState(() {
           _errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.';
