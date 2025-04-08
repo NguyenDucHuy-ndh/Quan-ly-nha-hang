@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:quanly_nhahang/screens/ho_so_screen.dart';
+import 'package:quanly_nhahang/screens/profile_screen.dart';
 import 'package:quanly_nhahang/screens/home/home_screen.dart';
 import 'package:quanly_nhahang/screens/order/order_screen.dart';
 import 'package:quanly_nhahang/screens/home/table_screen.dart';
@@ -93,6 +93,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     );
   }
 }
+
 class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
