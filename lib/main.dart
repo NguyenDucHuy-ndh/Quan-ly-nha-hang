@@ -4,7 +4,7 @@ import 'package:quanly_nhahang/firebase_options.dart';
 import 'package:quanly_nhahang/screens/auth/login_screen.dart';
 import 'package:quanly_nhahang/screens/auth/register_screen.dart';
 import 'package:quanly_nhahang/screens/home/bottom_navigation_screen.dart';
-import 'package:quanly_nhahang/screens/order/order_screen.dart';
+import 'package:quanly_nhahang/screens/kitchen/kitchen_screen.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
 
 Future<void> main() async {
@@ -27,7 +27,6 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/register': (context) => RegisterScreen(),
-        '/order': (context) => OrderScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/home') {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:quanly_nhahang/screens/cashier/cashier_screen.dart';
 import 'package:quanly_nhahang/screens/profile_screen.dart';
-import 'package:quanly_nhahang/screens/home/home_screen.dart';
-import 'package:quanly_nhahang/screens/order/order_screen.dart';
-import 'package:quanly_nhahang/screens/home/table_screen.dart';
+import 'package:quanly_nhahang/screens/kitchen/kitchen_screen.dart';
+import 'package:quanly_nhahang/screens/order/table_screen.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
@@ -24,9 +24,9 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     super.initState();
     // Khởi tạo _screens trong initState
     _screens = [
-      HomeScreen(),
+      CashierScreen(),
       TableScreen(),
-      OrderScreen(),
+      KitchenScreen(),
       ProfileScreen(userModel: widget.userModel),
     ];
   }
@@ -93,27 +93,3 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     );
   }
 }
-
-class HomeScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Bàn',
-        style: TextStyle(fontSize: 18),
-      ),
-    );
-  }
-}
-
-// class ProfileScreen extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     return const Center(
-//       child: Text(
-//         'Hồ sơ',
-//         style: TextStyle(fontSize: 18),
-//       ),
-//     );
-//   }
-// }
