@@ -74,6 +74,18 @@ class _KitchenScreenState extends State<KitchenScreen> {
         'status': newOrderStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Nếu món chuyển sang trạng thái hoàn thành, đặt timer để ẩn sau 5 phút
+      if (newStatus == 'ready') {
+        Future.delayed(const Duration(minutes: 5), () {
+          FirebaseFirestore.instance
+              .collection('orders')
+              .doc(orderId)
+              .collection('items')
+              .doc(itemId)
+              .update({'status': 'served'});
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

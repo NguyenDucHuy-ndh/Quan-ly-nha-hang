@@ -132,7 +132,10 @@ class _CashierScreenState extends State<CashierScreen> {
       child: InkWell(
         onTap: () => _showPaymentDetails(order),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 16,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -162,7 +165,7 @@ class _CashierScreenState extends State<CashierScreen> {
                         '${items.length} món - $totalQuantity phần',
                         style: const TextStyle(fontSize: 14),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         '${order.totalAmount.toStringAsFixed(0)}đ',
                         style: const TextStyle(
