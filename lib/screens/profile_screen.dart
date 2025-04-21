@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
 import 'package:quanly_nhahang/screens/manager/edit_menu_screen.dart';
+import 'package:quanly_nhahang/screens/manager/statistics_screen.dart';
 import 'package:quanly_nhahang/services/auth_service.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -183,7 +184,7 @@ class ProfileScreen extends StatelessWidget {
             ActionButton(
               icon: Icons.bar_chart,
               label: 'Báo cáo doanh thu',
-              onTap: () {},
+              onTap: () => _navigateToStatistics(context),
             ),
             ActionButton(
               icon: Icons.edit,
@@ -211,6 +212,15 @@ class ProfileScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (context) => const EditMenuScreen(),
+      ),
+    );
+  }
+
+  void _navigateToStatistics(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const StatisticsScreen(),
       ),
     );
   }
