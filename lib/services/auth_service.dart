@@ -10,32 +10,38 @@ class AuthService {
   Future<UserModel?> signUp(
       String email, String password, String displayName, String role) async {
     try {
+      print('Đang đăng ký với role: $role');
+
       // Tạo user trong Firebase Auth
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-          email: email, password: password);
-
-      // Cập nhật displayName
-      await result.user!.updateDisplayName(displayName);
-
-      // Tạo user model
-      UserModel user = UserModel(
-        uid: result.user!.uid,
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
         email: email,
-        displayName: displayName,
-        createdAt: DateTime.now(),
-        role: role, // Thêm role vào UserModel
+        password: password,
       );
 
-      // Lưu vào Firestore
-      await _firestore
-          .collection('users')
-          .doc(result.user!.uid)
-          .set(user.toMap());
+      if (userCredential.user != null) {
+        // Tạo đối tượng UserModel ngay sau khi đăng ký thành công
+        UserModel user = UserModel(
+          uid: userCredential.user!.uid,
+          email: email,
+          displayName: displayName,
+          createdAt: DateTime.now(),
+          role: role,
+        );
 
-      return user;
-    } catch (e) {
-      print("Error during sign up: ${e.toString()}");
+        // Lưu vào Firestore
+        await _firestore
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set(user.toMap());
+
+        print('Đã lưu user vào DB: ${user.toMap()}');
+        return user; // Trả về đối tượng UserModel đã tạo
+      }
       return null;
+    } catch (e) {
+      print('Lỗi trong quá trình đăng ký: $e');
+      throw e; // Ném lại lỗi để RegisterScreen xử lý
     }
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
+import 'package:quanly_nhahang/screens/manager/edit_menu_screen.dart';
+import 'package:quanly_nhahang/services/auth_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   final UserModel userModel;
@@ -39,7 +41,7 @@ class ProfileScreen extends StatelessWidget {
             backgroundColor: Colors.white,
             backgroundImage: userModel.photoUrl != null
                 ? NetworkImage(userModel.photoUrl!)
-                : const AssetImage('assets/images/default_avatar.png')
+                : const AssetImage('images/default_avatar.png')
                     as ImageProvider,
           ),
           const SizedBox(height: 16),
@@ -65,61 +67,42 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProfileContent(BuildContext context) {
-    switch (userModel.role) {
-      case 'customer':
-        return _buildCustomerProfile(context);
-      case 'staff':
-        return _buildStaffProfile(context);
+    // Thêm logging chi tiết hơn
+    print('Building profile content');
+    print('User data:');
+    print('UID: ${userModel.uid}');
+    print('Email: ${userModel.email}');
+    print('Role: ${userModel.role}');
+    print('DisplayName: ${userModel.displayName}');
+
+    // Chuẩn hóa role để tránh lỗi do chữ hoa/thường
+    final role = userModel.role.toLowerCase().trim();
+
+    // Chỉ phân biệt 2 loại: manager và staff (bao gồm cashier, kitchen, staff)
+    switch (role) {
       case 'manager':
         return _buildManagerProfile(context);
+      case 'waiter':
+      case 'kitchen':
+      case 'cashier':
+        return _buildStaffProfile(context);
       default:
-        return const Center(child: Text('Không tìm thấy thông tin'));
-    }
-  }
-
-  Widget _buildCustomerProfile(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          _buildInfoCard(
-            title: 'Thông tin cá nhân',
-            items: [
-              _buildInfoItem(Icons.phone, 'Số điện thoại', 'Chưa cập nhật'),
-              _buildInfoItem(Icons.cake, 'Ngày sinh', 'Chưa cập nhật'),
+        print('Unhandled role: $role');
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Không tìm thấy thông tin cho vai trò: $role',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
             ],
           ),
-          const SizedBox(height: 20),
-          _buildActionButtons([
-            ActionButton(
-              icon: Icons.history,
-              label: 'Lịch sử đặt bàn',
-              onTap: () {},
-            ),
-            ActionButton(
-              icon: Icons.restaurant,
-              label: 'Lịch sử gọi món',
-              onTap: () {},
-            ),
-            ActionButton(
-              icon: Icons.help_outline,
-              label: 'Hỗ trợ khách hàng',
-              onTap: () {},
-            ),
-            ActionButton(
-              icon: Icons.edit,
-              label: 'Cập nhật thông tin',
-              onTap: () {},
-            ),
-            ActionButton(
-              icon: Icons.logout,
-              label: 'Đăng xuất',
-              onTap: () => _handleLogout(context),
-            ),
-          ]),
-        ],
-      ),
-    );
+        );
+    }
   }
 
   Widget _buildStaffProfile(BuildContext context) {
@@ -131,20 +114,28 @@ class ProfileScreen extends StatelessWidget {
             title: 'Thông tin nhân viên',
             items: [
               _buildInfoItem(Icons.badge, 'Mã nhân viên', userModel.uid),
-              _buildInfoItem(Icons.work, 'Chức vụ', 'Nhân viên'),
+              _buildInfoItem(
+                  Icons.work, 'Chức vụ', _getRoleDisplay(userModel.role)),
               _buildInfoItem(Icons.access_time, 'Ca làm việc', 'Ca sáng'),
             ],
           ),
           const SizedBox(height: 20),
           _buildActionButtons([
+            if (userModel.role.toLowerCase() == 'kitchen')
+              ActionButton(
+                icon: Icons.restaurant_menu,
+                label: 'Xem đơn món',
+                onTap: () {},
+              ),
+            if (userModel.role.toLowerCase() == 'cashier')
+              ActionButton(
+                icon: Icons.payment,
+                label: 'Xử lý thanh toán',
+                onTap: () {},
+              ),
             ActionButton(
               icon: Icons.calendar_today,
-              label: 'Chấm công / Xem lịch làm',
-              onTap: () {},
-            ),
-            ActionButton(
-              icon: Icons.sync,
-              label: 'Đăng ký đổi ca',
+              label: 'Xem lịch làm việc',
               onTap: () {},
             ),
             ActionButton(
@@ -185,9 +176,9 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 20),
           _buildActionButtons([
             ActionButton(
-              icon: Icons.people,
-              label: 'Quản lý nhân sự',
-              onTap: () {},
+              icon: Icons.menu,
+              label: 'Chỉnh sửa menu',
+              onTap: () => _navigateToEditMenu(context),
             ),
             ActionButton(
               icon: Icons.bar_chart,
@@ -211,6 +202,15 @@ class ProfileScreen extends StatelessWidget {
             ),
           ]),
         ],
+      ),
+    );
+  }
+
+  void _navigateToEditMenu(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EditMenuScreen(),
       ),
     );
   }
@@ -294,9 +294,66 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _handleLogout(BuildContext context) {
-    // TODO: Implement logout logic
-    Navigator.pushReplacementNamed(context, '/');
+  void _handleLogout(BuildContext context) async {
+    try {
+      // Hiển thị dialog xác nhận
+      final bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Xác nhận đăng xuất'),
+          content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        final authService = AuthService();
+        await authService.signOut();
+
+        if (context.mounted) {
+          // Chuyển về màn hình login và xóa stack navigation
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      print('Logout error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xảy ra lỗi khi đăng xuất: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+
+String _getRoleDisplay(String role) {
+  switch (role.toLowerCase().trim()) {
+    case 'manager':
+      return 'Quản lý';
+    case 'kitchen':
+      return 'Đầu bếp';
+    case 'cashier':
+      return 'Thu ngân';
+    case 'staff':
+      return 'Nhân viên';
+    default:
+      return role;
   }
 }
 

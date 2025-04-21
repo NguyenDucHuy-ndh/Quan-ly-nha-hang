@@ -13,7 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _email = '';
   String _password = '';
   String _name = '';
-  String _role = 'staff'; // Mặc định là staff
+  String _role = 'waiter'; // Mặc định là staff
   bool _isLoading = false;
   String _errorMessage = '';
 
@@ -27,6 +27,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _formKey.currentState!.save();
 
       try {
+        print("Bắt đầu đăng ký với: Email: $_email, Role: $_role");
+
         final user = await _authService.signUp(
           _email,
           _password,
@@ -34,19 +36,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _role,
         );
 
+        print("Kết quả đăng ký: $user");
+
         setState(() {
           _isLoading = false;
         });
 
         if (user != null) {
-          // Chuyển hướng đến màn hình chính nếu đăng ký thành công
-          Navigator.pushReplacementNamed(context, '/home');
+          // Truyền tham số user vào route /home
+          Navigator.pushReplacementNamed(
+            context,
+            '/home',
+            arguments: user,
+          );
         } else {
           setState(() {
             _errorMessage = 'Đăng ký thất bại. Vui lòng thử lại.';
           });
         }
       } catch (e) {
+        print("Lỗi trong quá trình đăng ký: $e");
         setState(() {
           _isLoading = false;
           _errorMessage = 'Đã xảy ra lỗi: ${e.toString()}';
@@ -140,12 +149,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   value: _role,
                   items: const [
                     DropdownMenuItem(
-                      value: 'owner',
-                      child: Text('Owner'),
+                      value: 'manager',
+                      child: Text('Quản lý'),
                     ),
                     DropdownMenuItem(
-                      value: 'staff',
-                      child: Text('Staff'),
+                      value: 'cashier',
+                      child: Text('Cashier'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'waiter',
+                      child: Text('Waiter'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'kitchen',
+                      child: Text('Kitchen'),
                     ),
                   ],
                   onChanged: (value) {
@@ -184,7 +201,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Liên kết đến màn hình đăng nhập
                 TextButton(
                   onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/login');
+                    Navigator.pushReplacementNamed(context, '/');
                   },
                   child: const Text('Đã có tài khoản? Đăng nhập'),
                 ),

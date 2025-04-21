@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
             displayName: user.displayName,
             photoUrl: user.photoUrl,
             createdAt: user.createdAt ?? DateTime.now(),
-            role: 'customer',
+            role: user.role,
           ),
         );
       } else {
