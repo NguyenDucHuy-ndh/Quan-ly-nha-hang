@@ -230,25 +230,53 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: SizedBox(
-          height: 200,
+          height: 300, // Tăng chiều cao của chart
           child: LineChart(
             LineChartData(
               gridData: FlGridData(show: true),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: true),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 60, // Tăng khoảng cách cho text bên trái
+                    getTitlesWidget: (value, meta) {
+                      // Format giá trị theo nghìn đồng
+                      return Text(
+                        '${(value / 1000).toStringAsFixed(0)}K',
+                        style: const TextStyle(fontSize: 12),
+                      );
+                    },
+                  ),
                 ),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
+                    reservedSize: 35, // Tăng khoảng cách cho text bên dưới
+                    interval: 24 * 60 * 60 * 1000, // 1 ngày
                     getTitlesWidget: (value, meta) {
                       final date =
                           DateTime.fromMillisecondsSinceEpoch(value.toInt());
-                      return Text(DateFormat('dd/MM').format(date));
+                      return Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text(
+                          DateFormat('dd/MM').format(date),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ),
+                rightTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
               ),
+              borderData: FlBorderData(show: true),
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
@@ -256,6 +284,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   color: Colors.blue,
                   barWidth: 3,
                   dotData: FlDotData(show: true),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: Colors.blue.withOpacity(0.2),
+                  ),
                 ),
               ],
             ),
