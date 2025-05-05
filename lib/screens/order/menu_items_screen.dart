@@ -219,6 +219,7 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
                           child: Column(
                             children: [
                               ListTile(
+                                enabled: item.available, // Disable nếu hết hàng
                                 leading: Image.network(
                                   item.imageUrl ?? '',
                                   width: 56,
@@ -228,7 +229,38 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
                                     return const Icon(Icons.fastfood, size: 56);
                                   },
                                 ),
-                                title: Text(item.name),
+                                title: Row(
+                                  children: [
+                                    Text(
+                                      item.name,
+                                      style: TextStyle(
+                                        color: !item.available
+                                            ? Colors.grey
+                                            : null,
+                                      ),
+                                    ),
+                                    if (!item.available)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.red),
+                                        ),
+                                        child: const Text(
+                                          'Hết hàng',
+                                          style: TextStyle(
+                                            color: Colors.red,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -247,19 +279,28 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.remove),
-                                      onPressed: _quantities[item.id] != null &&
-                                              _quantities[item.id]! > 0
-                                          ? () => _updateQuantity(item.id, -1)
-                                          : null,
+                                      onPressed: !item.available
+                                          ? null
+                                          : (_quantities[item.id] != null &&
+                                                  _quantities[item.id]! > 0
+                                              ? () =>
+                                                  _updateQuantity(item.id, -1)
+                                              : null),
                                     ),
                                     Text(
                                       '${_quantities[item.id] ?? 0}',
-                                      style: const TextStyle(fontSize: 16),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: !item.available
+                                            ? Colors.grey
+                                            : null,
+                                      ),
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.add),
-                                      onPressed: () =>
-                                          _updateQuantity(item.id, 1),
+                                      onPressed: !item.available
+                                          ? null
+                                          : () => _updateQuantity(item.id, 1),
                                     ),
                                   ],
                                 ),
