@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/models/order.dart' as restaurant_order;
 import 'package:quanly_nhahang/models/table.dart' as restaurant_table;
 import 'package:quanly_nhahang/models/order_item.dart';
+import 'package:quanly_nhahang/services/notifications_service.dart';
 
 class KitchenScreen extends StatefulWidget {
   const KitchenScreen({super.key});
@@ -26,6 +27,24 @@ class _KitchenScreenState extends State<KitchenScreen> {
   Future<void> _updateItemStatus(
       String orderId, String itemId, String newStatus) async {
     try {
+      // Get order details
+      final orderDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .get();
+      final order = restaurant_order.Order.fromMap(
+          orderDoc.data() as Map<String, dynamic>, orderId);
+
+      // Get item details
+      final itemDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .collection('items')
+          .doc(itemId)
+          .get();
+      final item =
+          OrderItem.fromMap(itemDoc.data() as Map<String, dynamic>, itemId);
+
       // Cập nhật trạng thái của món
       await FirebaseFirestore.instance
           .collection('orders')
@@ -74,6 +93,13 @@ class _KitchenScreenState extends State<KitchenScreen> {
         'status': newOrderStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Thêm thông báo khi cập nhật trạng thái
+      await NotificationService.instance.sendOrderStatusUpdate(
+          tableId: order.tableId,
+          orderId: orderId,
+          itemName: item.name,
+          status: newStatus);
 
       // Nếu món chuyển sang trạng thái hoàn thành, đặt timer để ẩn sau 5 phút
       if (newStatus == 'ready') {

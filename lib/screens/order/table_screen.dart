@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:quanly_nhahang/models/order_item.dart';
 import 'package:quanly_nhahang/models/table.dart' as TableModel;
 import 'package:quanly_nhahang/screens/order/place_order_screen.dart';
+import 'package:quanly_nhahang/services/notifications_service.dart';
 
 class TableScreen extends StatefulWidget {
   const TableScreen({super.key});
@@ -224,6 +224,12 @@ class _TableScreenState extends State<TableScreen> {
                             }
                           }
 
+                          // Kiểm tra tất cả món đã sẵn sàng
+                          final bool allItemsReady =
+                              itemsByStatus['pending']!.isEmpty &&
+                                  itemsByStatus['preparing']!.isEmpty &&
+                                  itemsByStatus['ready']!.isNotEmpty;
+
                           // Hiển thị danh sách các món theo từng trạng thái
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,6 +240,8 @@ class _TableScreenState extends State<TableScreen> {
                                   'Đang chờ',
                                   itemsByStatus['pending']!,
                                   const Color.fromARGB(255, 191, 204, 3),
+                                  table.id, // Add tableId
+                                  orderId, // Add orderId
                                 ),
 
                               // Hiển thị món đang chế biến
@@ -242,6 +250,8 @@ class _TableScreenState extends State<TableScreen> {
                                   'Đang chế biến',
                                   itemsByStatus['preparing']!,
                                   Colors.blue,
+                                  table.id, // Add tableId
+                                  orderId, // Add orderId
                                 ),
 
                               // Hiển thị món sẵn sàng
@@ -250,6 +260,45 @@ class _TableScreenState extends State<TableScreen> {
                                   'Sẵn sàng',
                                   itemsByStatus['ready']!,
                                   const Color.fromARGB(255, 237, 19, 219),
+                                  table.id, // Add tableId
+                                  orderId, // Add orderId
+                                ),
+
+                              if (allItemsReady)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      double total = itemSnapshot.data!.docs
+                                          .fold(0.0, (sum, doc) {
+                                        final data =
+                                            doc.data() as Map<String, dynamic>;
+                                        return sum +
+                                            (data['price'] as num) *
+                                                (data['quantity'] as num);
+                                      });
+
+                                      await NotificationService.instance
+                                          .sendPaymentRequest(
+                                        tableId: table.id,
+                                        orderId: orderId,
+                                        amount: total,
+                                      );
+
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Đã gửi yêu cầu thanh toán')),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.payment),
+                                    label: const Text('Yêu cầu thanh toán'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
                                 ),
                             ],
                           );
@@ -268,7 +317,12 @@ class _TableScreenState extends State<TableScreen> {
 
 // Widget hiển thị danh sách món theo từng trạng thái
   Widget _buildItemStatusSection(
-      String title, List<Map<String, dynamic>> items, Color color) {
+    String title,
+    List<Map<String, dynamic>> items,
+    Color color,
+    String tableId,
+    String orderId,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -279,23 +333,56 @@ class _TableScreenState extends State<TableScreen> {
             color: color.withOpacity(0.9),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: Color.fromARGB(255, 28, 6, 154),
-              fontWeight: FontWeight.bold,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' (${items.length})',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
           ),
         ),
         ...items
             .map((item) => Padding(
-                  padding: const EdgeInsets.only(left: 8, bottom: 2),
-                  child: Text(
-                    '• ${item['name']} (${item['quantity']})',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                    ),
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '• ${item['name']} (${item['quantity']})',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (String newStatus) async {
+                          await NotificationService.instance
+                              .sendOrderStatusUpdate(
+                            tableId: tableId,
+                            orderId: orderId,
+                            itemName: item['name'],
+                            status: newStatus,
+                          );
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem(
+                            value: 'preparing',
+                            child: Text('Đang chế biến'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'ready',
+                            child: Text('Sẵn sàng'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ))
             .toList(),

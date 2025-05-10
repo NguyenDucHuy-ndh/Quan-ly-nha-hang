@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quanly_nhahang/models/menu_category.dart';
 import 'package:quanly_nhahang/models/menu_item.dart';
 import 'package:quanly_nhahang/models/order_item.dart';
+import 'package:quanly_nhahang/services/notifications_service.dart';
 import 'package:quanly_nhahang/services/order_service.dart';
 
 class MenuItemsScreen extends StatefulWidget {
@@ -77,21 +78,24 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
       setState(() => _isLoading = true);
 
       // Lấy hoặc tạo order mới
-      String? orderId; // Thay đổi kiểu thành String?
+      String? orderId;
       final tableDoc = await FirebaseFirestore.instance
           .collection('tables')
           .doc(widget.tableId)
           .get();
 
       final tableData = tableDoc.data() as Map<String, dynamic>;
-      orderId = tableData['currentOrderId'] as String?; // Ép kiểu an toàn
+      orderId = tableData['currentOrderId'] as String?;
 
       if (orderId == null) {
         orderId = await OrderService.createNewOrder(
           tableId: widget.tableId,
-          serverId: 'current_server_id', // Thay bằng ID của nhân viên hiện tại
+          serverId: 'current_server_id',
         );
       }
+
+      // Tạo danh sách món để gửi thông báo
+      List<Map<String, dynamic>> orderItems = [];
 
       // Thêm từng món vào order
       for (final entry in _quantities.entries) {
@@ -106,17 +110,31 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
         );
 
         await OrderService.addItemToOrder(
-          orderId: orderId, // Bây giờ orderId chắc chắn có giá trị
+          orderId: orderId,
           item: orderItem,
         );
+
+        // Thêm vào danh sách để gửi thông báo
+        orderItems.add({
+          'name': item.name,
+          'quantity': entry.value,
+          'note': _notes[item.id],
+          'status': 'pending'
+        });
       }
+
+      // Gửi thông báo đến bếp
+      await NotificationService.instance.sendOrderToKitchen(
+        tableId: widget.tableId,
+        orderId: orderId,
+        items: orderItems,
+      );
 
       // Hiển thị thông báo thành công
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã thêm món vào đơn hàng')),
         );
-        // Xóa các món đã thêm
         setState(() {
           _quantities.clear();
           _notes.clear();

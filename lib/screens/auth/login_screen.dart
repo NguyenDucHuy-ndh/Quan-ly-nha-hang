@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/services/auth_service.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
+import 'package:quanly_nhahang/services/notifications_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,41 +31,29 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = '';
     });
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Email và mật khẩu không được để trống.';
-      });
-      return;
-    }
-
     try {
-      UserModel? user = await _authService.logIn(email, password);
+      UserModel? user = await _authService.logIn(
+          _emailController.text.trim(), _passwordController.text.trim());
+
       if (user != null) {
-        // Chuyển hướng đến màn hình chính nếu đăng nhập thành công
+        // Set role for notifications
+        await NotificationService.instance.setCurrentRole(user.role);
+        print('Logged in with role: ${user.role}');
+
+        // Navigate to home
         Navigator.pushReplacementNamed(
           context,
           '/home',
-          arguments: UserModel(
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoUrl: user.photoUrl,
-            createdAt: user.createdAt ?? DateTime.now(),
-            role: user.role,
-          ),
+          arguments: user,
         );
       } else {
         setState(() {
-          _errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.';
+          _errorMessage = 'Đăng nhập thất bại';
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Đã xảy ra lỗi: ${e.toString()}';
+        _errorMessage = e.toString();
       });
     } finally {
       setState(() {

@@ -264,16 +264,27 @@ class ProfileScreen extends StatelessWidget {
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start, // Căn đầu dòng
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 16),
+                Flexible(
+                  flex: 2,
+                  child: Text(
+                    label,
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
+                Flexible(
+                  flex: 3,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.right,
+                    overflow:
+                        TextOverflow.ellipsis, // Thêm dấu ... nếu text quá dài
+                    maxLines: 1, // Giới hạn 1 dòng
                   ),
                 ),
               ],

@@ -48,34 +48,30 @@ class AuthService {
   // Đăng nhập
   Future<UserModel?> logIn(String email, String password) async {
     try {
-      // Đăng nhập bằng email và mật khẩu
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
-      // Lấy thông tin user từ Firestore
-      DocumentSnapshot doc =
-          await _firestore.collection('users').doc(result.user!.uid).get();
+      // Lấy thông tin user từ Firestore bao gồm role
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
 
-      if (doc.exists) {
-        // Chuyển đổi dữ liệu Firestore thành UserModel
-        return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      } else {
-        print("User document does not exist in Firestore.");
-        return null;
-      }
-    } on FirebaseAuthException catch (e) {
-      // Xử lý lỗi Firebase Auth
-      if (e.code == 'user-not-found') {
-        print("No user found for that email.");
-      } else if (e.code == 'wrong-password') {
-        print("Wrong password provided for that user.");
-      } else {
-        print("FirebaseAuthException: ${e.message}");
+      if (userDoc.exists) {
+        return UserModel(
+          uid: userCredential.user!.uid,
+          email: userCredential.user!.email!,
+          displayName: userCredential.user!.displayName,
+          photoUrl: userCredential.user!.photoURL,
+          role: userDoc.data()!['role'] ?? 'user', // Lấy role từ Firestore
+          createdAt: userCredential.user!.metadata.creationTime,
+        );
       }
       return null;
     } catch (e) {
-      // Xử lý các lỗi khác
-      print("An error occurred: ${e.toString()}");
+      print(e);
       return null;
     }
   }
