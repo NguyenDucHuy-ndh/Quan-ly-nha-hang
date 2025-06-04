@@ -53,7 +53,7 @@ ios/Runner/GoogleService-Info.plist
 android/.gradle/
 android/app/build/
 android/build/
-
+/android/
 # iOS build artifacts
 ios/Pods/
 ios/Flutter/Flutter.framework

@@ -12,6 +12,7 @@ class Order {
   final bool isPaid;
   final String serverId;
   final List<OrderItem>? items;
+  final bool paymentRequested; // Thêm trường này để theo dõi yêu cầu thanh toán
 
   Order({
     required this.id,
@@ -23,8 +24,8 @@ class Order {
     required this.isPaid,
     required this.serverId,
     this.items,
+    this.paymentRequested = false,
   });
-
   factory Order.fromMap(Map<String, dynamic> map, String id) {
     return Order(
       id: id,
@@ -35,9 +36,9 @@ class Order {
       totalAmount: (map['totalAmount'] ?? 0).toDouble(),
       isPaid: map['isPaid'] ?? false,
       serverId: map['serverId'] ?? '',
+      paymentRequested: map['paymentRequested'] ?? false,
     );
   }
-
   Map<String, dynamic> toMap() {
     return {
       'tableId': tableId,
@@ -47,6 +48,7 @@ class Order {
       'totalAmount': totalAmount,
       'isPaid': isPaid,
       'serverId': serverId,
+      'paymentRequested': paymentRequested,
     };
   }
 }

@@ -14,6 +14,8 @@ class KitchenScreen extends StatefulWidget {
 
 class _KitchenScreenState extends State<KitchenScreen> {
   late Stream<QuerySnapshot> ordersStream;
+  int _unreadNotificationsCount = 0;
+  Stream<QuerySnapshot>? _notificationsStream;
 
   @override
   void initState() {
@@ -22,6 +24,30 @@ class _KitchenScreenState extends State<KitchenScreen> {
     ordersStream = FirebaseFirestore.instance
         .collection('orders')
         .where('status', whereIn: ['pending', 'preparing']).snapshots();
+
+    // Thiết lập role cho NotificationService
+    _setupNotifications();
+    // Lắng nghe các thông báo mới
+    _listenForNotifications();
+  }
+
+  Future<void> _setupNotifications() async {
+    await NotificationService.instance
+        .setCurrentRole(NotificationService.ROLE_KITCHEN);
+  }
+
+  void _listenForNotifications() {
+    _notificationsStream = FirebaseFirestore.instance
+        .collection('notifications')
+        .where('targetRole', isEqualTo: 'kitchen')
+        .where('status', isEqualTo: 'unread')
+        .snapshots();
+
+    _notificationsStream?.listen((snapshot) {
+      setState(() {
+        _unreadNotificationsCount = snapshot.docs.length;
+      });
+    });
   }
 
   Future<void> _updateItemStatus(
@@ -128,6 +154,43 @@ class _KitchenScreenState extends State<KitchenScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Quản lý Bếp'),
+          actions: [
+            // Hiển thị biểu tượng thông báo với số lượng
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: () => _showNotifications(context),
+                ),
+                if (_unreadNotificationsCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$_unreadNotificationsCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(
@@ -154,6 +217,196 @@ class _KitchenScreenState extends State<KitchenScreen> {
         ),
       ),
     );
+  }
+
+  // Thêm phương thức hiển thị thông báo
+  void _showNotifications(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Thông báo'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Thêm nút "Đánh dấu tất cả đã đọc"
+                TextButton(
+                  onPressed: () {
+                    _markAllNotificationsAsRead();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Đánh dấu tất cả đã đọc'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: _buildNotificationsList(),
+        ),
+      ),
+    );
+  }
+
+  // Phương thức đánh dấu tất cả thông báo là đã đọc
+  Future<void> _markAllNotificationsAsRead() async {
+    try {
+      // Lấy tất cả thông báo chưa đọc
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'kitchen')
+          .where('status', isEqualTo: 'unread')
+          .get();
+
+      // Cập nhật từng thông báo
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in querySnapshot.docs) {
+        batch.update(doc.reference, {'status': 'read'});
+      }
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tất cả thông báo đã được đánh dấu là đã đọc'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  // Widget danh sách thông báo
+  Widget _buildNotificationsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'kitchen')
+          // Bỏ orderBy để tránh lỗi index
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Lỗi: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text('Không có thông báo nào'),
+          );
+        }
+
+        // Sắp xếp thông báo ở client, hiển thị mới nhất đầu tiên
+        final notifications = snapshot.data!.docs;
+        notifications.sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+          final aTimestamp = aData['timestamp'] as Timestamp?;
+          final bTimestamp = bData['timestamp'] as Timestamp?;
+
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+
+          // Sắp xếp giảm dần (mới nhất trước)
+          return bTimestamp.compareTo(aTimestamp);
+        });
+
+        return ListView.builder(
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            final data = notification.data() as Map<String, dynamic>;
+            final isUnread = data['status'] == 'unread';
+
+            return ListTile(
+              title: Text(
+                data['title'] as String? ?? 'Thông báo mới',
+                style: TextStyle(
+                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(data['body'] as String? ?? ''),
+              leading: CircleAvatar(
+                backgroundColor: Colors.amber,
+                child: Icon(
+                  Icons.restaurant,
+                  color: Colors.white,
+                ),
+              ),
+              trailing: Text(
+                _formatTimestamp(data['timestamp'] as Timestamp),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isUnread ? Colors.blue : Colors.grey,
+                ),
+              ),
+              tileColor: isUnread ? Colors.blue.withOpacity(0.1) : null,
+              onTap: () {
+                // Đánh dấu thông báo là đã đọc
+                if (isUnread) {
+                  FirebaseFirestore.instance
+                      .collection('notifications')
+                      .doc(notification.id)
+                      .update({'status': 'read'});
+                }
+
+                // Xử lý thông báo (nếu cần)
+                if (data['type'] == 'new_order') {
+                  // Xử lý đơn hàng mới
+                  _handleNewOrder(data['orderId'] as String);
+                }
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Định dạng thời gian cho thông báo
+  String _formatTimestamp(Timestamp timestamp) {
+    final dateTime = timestamp.toDate();
+    return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.day}/${dateTime.month}';
+  }
+
+  // Xử lý khi thông báo đơn hàng mới
+  void _handleNewOrder(String orderId) {
+    Navigator.pop(context); // Đóng dialog thông báo
+
+    // Tìm đơn hàng và hiển thị
+    FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .get()
+        .then((doc) {
+      if (doc.exists) {
+        final order = restaurant_order.Order.fromMap(
+            doc.data() as Map<String, dynamic>, doc.id);
+        _showOrderDetails(order);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy đơn hàng này')),
+        );
+      }
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi tải đơn hàng: $error')),
+      );
+    });
   }
 
   Widget _buildOrderList(String status) {
@@ -262,100 +515,69 @@ class _KitchenScreenState extends State<KitchenScreen> {
     );
   }
 
-  Widget _buildOrderCard(restaurant_order.Order order) {
-    return Card(
-      margin: const EdgeInsets.all(8),
-      child: InkWell(
-        onTap: () => _showOrderDetails(order),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      _buildTableInfo(order.tableId),
-                    ],
-                  ),
-                  Text(
-                    _formatDateTime(order.createdAt),
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('orders')
-                    .doc(order.id)
-                    .collection('items')
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-
-                  final items = snapshot.data!.docs
-                      .map((doc) => OrderItem.fromMap(
-                          doc.data() as Map<String, dynamic>, doc.id))
-                      .toList();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${items.length} món',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          _buildStatusCounter(
-                              'Chờ',
-                              items
-                                  .where((item) => item.status == 'pending')
-                                  .length),
-                          _buildStatusCounter(
-                              'Đang làm',
-                              items
-                                  .where((item) => item.status == 'preparing')
-                                  .length),
-                          _buildStatusCounter(
-                              'Xong',
-                              items
-                                  .where((item) => item.status == 'ready')
-                                  .length),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
+  Widget _buildStatusUpdateButton(
+      String orderId, String itemId, OrderItem item) {
+    return PopupMenuButton<String>(
+      initialValue: item.status,
+      onSelected: (String newStatus) =>
+          _updateItemStatus(orderId, itemId, newStatus),
+      child: Chip(
+        avatar: Icon(
+          _getStatusIcon(item.status),
+          color: Colors.white,
+          size: 18,
         ),
+        label: Text(
+          _getStatusText(item.status),
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: _getStatusColor(item.status),
       ),
+      itemBuilder: (BuildContext context) => [
+        const PopupMenuItem(
+          value: 'pending',
+          child: Text('Chờ chế biến'),
+        ),
+        const PopupMenuItem(
+          value: 'preparing',
+          child: Text('Đang chế biến'),
+        ),
+        const PopupMenuItem(
+          value: 'ready',
+          child: Text('Hoàn thành'),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatusCounter(String label, int count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '$label: $count',
-        style: const TextStyle(fontSize: 12),
-      ),
+  Widget _buildTableInfo(String tableId) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('tables')
+          .doc(tableId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Text('Đang tải...');
+        }
+
+        final tableData = snapshot.data!.data() as Map<String, dynamic>;
+        final table = restaurant_table.Table.fromMap(tableData, tableId);
+
+        return Row(
+          children: [
+            const Icon(Icons.table_restaurant, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Bàn ${table.tableNumber}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -399,7 +621,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Bàn ${order.tableId}',
+                'Chi tiết đơn hàng',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               IconButton(
@@ -408,6 +630,8 @@ class _KitchenScreenState extends State<KitchenScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          _buildTableInfo(order.tableId),
           const SizedBox(height: 8),
           Text(
             'Thời gian đặt: ${_formatDateTime(order.createdAt)}',
@@ -489,72 +713,6 @@ class _KitchenScreenState extends State<KitchenScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStatusUpdateButton(
-      String orderId, String itemId, OrderItem item) {
-    return PopupMenuButton<String>(
-      initialValue: item.status,
-      onSelected: (String newStatus) =>
-          _updateItemStatus(orderId, itemId, newStatus),
-      child: Chip(
-        avatar: Icon(
-          _getStatusIcon(item.status),
-          color: Colors.white,
-          size: 18,
-        ),
-        label: Text(
-          _getStatusText(item.status),
-          style: const TextStyle(color: Colors.white),
-        ),
-        backgroundColor: _getStatusColor(item.status),
-      ),
-      itemBuilder: (BuildContext context) => [
-        const PopupMenuItem(
-          value: 'pending',
-          child: Text('Chờ chế biến'),
-        ),
-        const PopupMenuItem(
-          value: 'preparing',
-          child: Text('Đang chế biến'),
-        ),
-        const PopupMenuItem(
-          value: 'ready',
-          child: Text('Hoàn thành'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTableInfo(String tableId) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('tables')
-          .doc(tableId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Text('Đang tải...');
-        }
-
-        final tableData = snapshot.data!.data() as Map<String, dynamic>;
-        final table = restaurant_table.Table.fromMap(tableData, tableId);
-
-        return Row(
-          children: [
-            const Icon(Icons.table_restaurant, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Bàn ${table.tableNumber}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
