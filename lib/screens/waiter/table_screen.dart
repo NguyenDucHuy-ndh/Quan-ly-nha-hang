@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quanly_nhahang/models/table.dart' as TableModel;
-import 'package:quanly_nhahang/screens/order/place_order_screen.dart';
+import 'package:quanly_nhahang/screens/waiter/place_order_screen.dart';
 import 'package:quanly_nhahang/services/notifications_service.dart';
 
 class TableScreen extends StatefulWidget {
@@ -13,6 +13,8 @@ class TableScreen extends StatefulWidget {
 
 class _TableScreenState extends State<TableScreen> {
   bool _isGridView = true;
+  int _unreadNotificationsCount = 0;
+  Stream<QuerySnapshot>? _notificationsStream;
 
   // Lấy danh sách bàn từ Firestore
   Stream<List<TableModel.Table>> _getTables() {
@@ -47,45 +49,235 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quản lý nhà hàng'),
-        actions: [
-          IconButton(
-            icon: Icon(_isGridView ? Icons.list_alt_sharp : Icons.grid_view),
-            onPressed: () {
-              setState(() {
-                _isGridView = !_isGridView;
-              });
-            },
-            tooltip: _isGridView
-                ? 'Chuyển sang dạng danh sách'
-                : 'Chuyển sang dạng lưới',
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<TableModel.Table>>(
-        stream: _getTables(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  void initState() {
+    super.initState();
+    // Thiết lập role cho NotificationService
+    _setupNotifications();
+    // Lắng nghe các thông báo mới
+    _listenForNotifications();
+  }
 
-          if (snapshot.hasError) {
-            return const Center(child: Text('Đã xảy ra lỗi khi tải dữ liệu.'));
-          }
+  Future<void> _setupNotifications() async {
+    await NotificationService.instance
+        .setCurrentRole(NotificationService.ROLE_WAITER);
+  }
 
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Không có bàn nào.'));
-          }
+  void _listenForNotifications() {
+    _notificationsStream = FirebaseFirestore.instance
+        .collection('notifications')
+        .where('targetRole', isEqualTo: 'waiter')
+        .where('status', isEqualTo: 'unread')
+        .snapshots();
 
-          final tables = snapshot.data!;
+    _notificationsStream?.listen((snapshot) {
+      setState(() {
+        _unreadNotificationsCount = snapshot.docs.length;
+      });
+    });
+  }
 
-          return _isGridView ? _buildGridView(tables) : _buildListView(tables);
-        },
+  // Thêm phương thức hiển thị thông báo
+  void _showNotifications(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Thông báo'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Thêm nút "Đánh dấu tất cả đã đọc"
+                TextButton(
+                  onPressed: () {
+                    _markAllNotificationsAsRead();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Đánh dấu tất cả đã đọc'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: _buildNotificationsList(),
+        ),
       ),
     );
+  }
+
+  // Phương thức đánh dấu tất cả thông báo là đã đọc
+  Future<void> _markAllNotificationsAsRead() async {
+    try {
+      // Lấy tất cả thông báo chưa đọc
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'waiter')
+          .where('status', isEqualTo: 'unread')
+          .get();
+
+      // Cập nhật từng thông báo
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in querySnapshot.docs) {
+        batch.update(doc.reference, {'status': 'read'});
+      }
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tất cả thông báo đã được đánh dấu là đã đọc'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  // Widget danh sách thông báo
+  Widget _buildNotificationsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'waiter')
+          // Bỏ orderBy để tránh lỗi index
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Lỗi: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text('Không có thông báo nào'),
+          );
+        }
+
+        // Sắp xếp thông báo ở client, hiển thị mới nhất đầu tiên
+        final notifications = snapshot.data!.docs;
+        notifications.sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+          final aTimestamp = aData['timestamp'] as Timestamp?;
+          final bTimestamp = bData['timestamp'] as Timestamp?;
+
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+
+          // Sắp xếp giảm dần (mới nhất trước)
+          return bTimestamp.compareTo(aTimestamp);
+        });
+
+        return ListView.builder(
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            final data = notification.data() as Map<String, dynamic>;
+            final isUnread = data['status'] == 'unread';
+
+            return ListTile(
+              title: Text(
+                data['title'] as String? ?? 'Thông báo mới',
+                style: TextStyle(
+                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(data['body'] as String? ?? ''),
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue,
+                child: Icon(
+                  data['type'] == 'status_update'
+                      ? Icons.restaurant_menu
+                      : Icons.notifications,
+                  color: Colors.white,
+                ),
+              ),
+              trailing: Text(
+                _formatTimestamp(data['timestamp'] as Timestamp),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isUnread ? Colors.blue : Colors.grey,
+                ),
+              ),
+              tileColor: isUnread ? Colors.blue.withOpacity(0.1) : null,
+              onTap: () {
+                // Đánh dấu thông báo là đã đọc
+                if (isUnread) {
+                  FirebaseFirestore.instance
+                      .collection('notifications')
+                      .doc(notification.id)
+                      .update({'status': 'read'});
+                }
+
+                // Nếu là thông báo món ăn đã sẵn sàng, có thể mở chi tiết bàn
+                if (data['type'] == 'status_update' &&
+                    data['status'] == 'ready') {
+                  Navigator.pop(context); // Đóng dialog thông báo
+                  _handleReadyItemNotification(data['tableId'] as String);
+                }
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Định dạng thời gian cho thông báo
+  String _formatTimestamp(Timestamp timestamp) {
+    final dateTime = timestamp.toDate();
+    return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.day}/${dateTime.month}';
+  }
+
+  // Xử lý khi nhấn vào thông báo món ăn đã sẵn sàng
+  void _handleReadyItemNotification(String tableId) async {
+    try {
+      // Lấy thông tin bàn
+      final tableDoc = await FirebaseFirestore.instance
+          .collection('tables')
+          .doc(tableId)
+          .get();
+
+      if (!tableDoc.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy thông tin bàn')),
+        );
+        return;
+      }
+
+      final table = TableModel.Table.fromMap(
+          tableDoc.data() as Map<String, dynamic>, tableId);
+
+      // Chuyển đến màn hình chi tiết bàn
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlaceOrderScreen(table: table),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildGridView(List<TableModel.Table> tables) {
@@ -434,6 +626,81 @@ class _TableScreenState extends State<TableScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Hiển thị AppBar với thông báo và chuyển đổi chế độ xem
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Danh sách bàn'),
+        actions: [
+          // Hiển thị biểu tượng thông báo với số lượng
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () => _showNotifications(context),
+              ),
+              if (_unreadNotificationsCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$_unreadNotificationsCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // Chuyển đổi chế độ xem
+          IconButton(
+            icon: Icon(_isGridView ? Icons.list : Icons.grid_view),
+            onPressed: () {
+              setState(() {
+                _isGridView = !_isGridView;
+              });
+            },
+          ),
+        ],
+      ),
+      body: StreamBuilder<List<TableModel.Table>>(
+        stream: _getTables(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Lỗi: ${snapshot.error}'));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('Không có bàn nào'));
+          }
+
+          final tables = snapshot.data!;
+          return _isGridView ? _buildGridView(tables) : _buildListView(tables);
+        },
       ),
     );
   }

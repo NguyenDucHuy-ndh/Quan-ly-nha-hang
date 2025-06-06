@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/models/menu_category.dart';
 import 'package:quanly_nhahang/models/table.dart' as TableModel;
-import 'package:quanly_nhahang/screens/order/cart_screen.dart';
-import 'package:quanly_nhahang/screens/order/menu_items_screen.dart';
+import 'package:quanly_nhahang/screens/waiter/cart_screen.dart';
+import 'package:quanly_nhahang/screens/waiter/menu_items_screen.dart';
 
 class PlaceOrderScreen extends StatefulWidget {
   final TableModel.Table table;
@@ -19,7 +21,8 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
   TableModel.Table? currentTable;
   String? selectedCategoryId;
   Stream<QuerySnapshot>? menuItemsStream;
-
+  int _unreadNotificationsCount = 0;
+  StreamSubscription<QuerySnapshot>? _notificationSubscription;
   @override
   void initState() {
     super.initState();
@@ -34,6 +37,151 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
         .collection('tables')
         .doc(widget.table.id)
         .snapshots();
+
+    // Kiểm tra thông báo liên quan đến bàn này khi mở màn hình
+    _checkTableNotifications();
+
+    // Lắng nghe thông báo mới cho bàn này
+    _listenForTableNotifications();
+  }
+
+  // Lắng nghe thông báo mới
+  void _listenForTableNotifications() {
+    final notificationsStream = FirebaseFirestore.instance
+        .collection('notifications')
+        .where('targetRole', isEqualTo: 'waiter')
+        .where('tableId', isEqualTo: widget.table.id)
+        .where('status', isEqualTo: 'unread')
+        .snapshots();
+
+    _notificationSubscription = notificationsStream.listen((snapshot) {
+      setState(() {
+        _unreadNotificationsCount = snapshot.docs.length;
+      });
+
+      // Nếu có thông báo mới, hiển thị snackbar
+      if (snapshot.docChanges
+          .any((change) => change.type == DocumentChangeType.added)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Có thông báo mới về món ăn!'),
+              action: SnackBarAction(
+                label: 'Xem',
+                onPressed: () {
+                  _showTableNotifications(snapshot.docs);
+                },
+              ),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Hủy đăng ký lắng nghe khi widget bị hủy
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Kiểm tra các thông báo liên quan đến bàn hiện tại
+  void _checkTableNotifications() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'waiter')
+          .where('tableId', isEqualTo: widget.table.id)
+          .where('status', isEqualTo: 'unread')
+          .get();
+
+      setState(() {
+        _unreadNotificationsCount = querySnapshot.docs.length;
+      });
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Hiển thị thông báo cho người dùng
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Có ${querySnapshot.docs.length} thông báo mới về món ăn cho bàn này'),
+              action: SnackBarAction(
+                label: 'Xem',
+                onPressed: () {
+                  _showTableNotifications(querySnapshot.docs);
+                },
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Lỗi khi kiểm tra thông báo: $e');
+    }
+  }
+
+  // Hiển thị danh sách thông báo liên quan đến bàn
+  void _showTableNotifications(List<QueryDocumentSnapshot> notifications) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Thông báo món ăn'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: notifications.length,
+            itemBuilder: (context, index) {
+              final data = notifications[index].data() as Map<String, dynamic>;
+              return ListTile(
+                title: Text(data['title'] ?? 'Thông báo'),
+                subtitle: Text(data['body'] ?? ''),
+                trailing: Text(
+                  _formatTimestamp(data['timestamp'] as Timestamp),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onTap: () {
+                  // Đánh dấu thông báo đã đọc
+                  FirebaseFirestore.instance
+                      .collection('notifications')
+                      .doc(notifications[index].id)
+                      .update({'status': 'read'});
+
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Đánh dấu tất cả thông báo đã đọc
+              for (var doc in notifications) {
+                FirebaseFirestore.instance
+                    .collection('notifications')
+                    .doc(doc.id)
+                    .update({'status': 'read'});
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Đánh dấu tất cả đã đọc'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Định dạng thời gian cho thông báo
+  String _formatTimestamp(Timestamp timestamp) {
+    final dateTime = timestamp.toDate();
+    return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.day}/${dateTime.month}';
   }
 
   Future<void> _updateTableStatus(String tableId, String newStatus) async {
@@ -105,6 +253,59 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
       appBar: AppBar(
         title: Text('Order món - Bàn ${currentTable!.tableNumber}'),
         actions: [
+          // Biểu tượng thông báo với số lượng
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () async {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('notifications')
+                      .where('targetRole', isEqualTo: 'waiter')
+                      .where('tableId', isEqualTo: currentTable!.id)
+                      .where('status', isEqualTo: 'unread')
+                      .get();
+
+                  if (mounted) {
+                    if (querySnapshot.docs.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Không có thông báo mới')),
+                      );
+                    } else {
+                      _showTableNotifications(querySnapshot.docs);
+                    }
+                  }
+                },
+              ),
+              if (_unreadNotificationsCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$_unreadNotificationsCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // Giỏ hàng
           IconButton(
             icon: const Icon(Icons.shopping_cart),
             onPressed: () {

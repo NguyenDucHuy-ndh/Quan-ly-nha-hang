@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/screens/cashier/cashier_screen.dart';
 import 'package:quanly_nhahang/screens/profile_screen.dart';
 import 'package:quanly_nhahang/screens/kitchen/kitchen_screen.dart';
-import 'package:quanly_nhahang/screens/order/table_screen.dart';
+import 'package:quanly_nhahang/screens/waiter/table_screen.dart';
 import 'package:quanly_nhahang/models/user_model.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
@@ -131,14 +131,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Xử lý thông báo
-            },
-          ),
-        ],
+        actions: [],
       ),
       drawer: Drawer(
         child: ListView(

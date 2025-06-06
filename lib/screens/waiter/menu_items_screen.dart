@@ -101,7 +101,7 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
       for (final entry in _quantities.entries) {
         final item = _menuItems[entry.key]!;
         final orderItem = OrderItem(
-          menuItemId: item.id!,
+          menuItemId: item.id,
           name: item.name,
           price: item.price,
           quantity: entry.value,
@@ -231,7 +231,7 @@ class _MenuItemsScreenState extends State<MenuItemsScreen> {
                         final doc = filteredItems[index];
                         final item = MenuItem.fromMap(
                             doc.data() as Map<String, dynamic>, doc.id);
-                        _menuItems[item.id!] = item;
+                        _menuItems[item.id] = item;
 
                         return Card(
                           child: Column(

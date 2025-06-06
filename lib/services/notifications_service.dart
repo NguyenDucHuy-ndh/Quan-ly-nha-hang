@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -63,9 +65,8 @@ class NotificationService {
             data,
           );
 
-          // Mark as read
-          await change.doc.reference.update(
-              {'status': 'read', 'readAt': FieldValue.serverTimestamp()});
+          // Không tự động đánh dấu đã đọc để người dùng có thể thấy thông báo trong app
+          // Thông báo sẽ được đánh dấu đã đọc khi người dùng tương tác với chúng
         }
       }
     });
@@ -74,18 +75,33 @@ class NotificationService {
   Future<void> _showLocalNotification(
       String title, String body, Map<String, dynamic> payload) async {
     await _localNotifications.show(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        title,
-        body,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            'restaurant_orders',
-            'Đơn hàng',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'restaurant_orders',
+          'Đơn hàng',
+          channelDescription: 'Thông báo đơn hàng từ phục vụ đến bếp',
+          importance: Importance.max,
+          priority: Priority.max,
+          sound:
+              const RawResourceAndroidNotificationSound('notification_sound'),
+          playSound: true,
+          enableLights: true,
+          enableVibration: true,
+          ticker: 'Đơn hàng mới',
+          color: const Color(0xFF4CAF50),
         ),
-        payload: payload.toString());
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          sound: 'notification_sound.wav',
+        ),
+      ),
+      payload: payload.toString(),
+    );
   }
 
   Future<void> _initLocalNotifications() async {
@@ -114,9 +130,13 @@ class NotificationService {
         const AndroidNotificationChannel(
           'restaurant_orders',
           'Đơn hàng',
-          importance: Importance.high,
+          description:
+              'Thông báo đơn hàng từ phục vụ đến bếp', // Thêm description
+          importance: Importance.max, // Đổi từ high thành max
           enableVibration: true,
           playSound: true,
+          sound: RawResourceAndroidNotificationSound(
+              'notification_sound'), // Cấu hình âm thanh
         ),
       );
     }
@@ -164,20 +184,46 @@ class NotificationService {
       required String orderId,
       required List<Map<String, dynamic>> items}) async {
     try {
-      // Chỉ lưu vào Firestore
+      // Lấy thông tin tên bàn từ Firestore
+      DocumentSnapshot tableDoc =
+          await _firestore.collection('tables').doc(tableId).get();
+      String tableName = tableDoc.exists
+          ? (tableDoc.data() as Map<String, dynamic>)['name'] ??
+              'Bàn không xác định'
+          : 'Bàn không xác định';
+
+      // Tạo danh sách món ăn chi tiết
+      List<String> itemDetails = [];
+      for (var item in items) {
+        String name = item['name'] ?? 'Không tên';
+        int quantity = item['quantity'] ?? 1;
+        String note = item['note'] != null && item['note'].toString().isNotEmpty
+            ? ' (${item['note']})'
+            : '';
+        itemDetails.add('$quantity x $name$note');
+      }
+
+      // Tạo nội dung thông báo
+      String itemsText = itemDetails.join('\n- ');
+      String title = 'Đơn hàng mới - $tableName';
+      String body = 'Danh sách món:\n- $itemsText';
+
+      // Lưu thông báo vào Firestore
       DocumentReference notifRef =
           await _firestore.collection('notifications').add({
         'type': 'new_order',
         'targetRole': 'kitchen',
         'tableId': tableId,
+        'tableName': tableName, // Thêm tên bàn
         'orderId': orderId,
         'items': items,
         'status': 'unread',
         'timestamp': FieldValue.serverTimestamp(),
-        'title': 'Đơn hàng mới',
-        'body': 'Bàn $tableId vừa đặt ${items.length} món'
+        'title': title,
+        'body': body
       });
-      print('Đã lưu thông báo vào Firestore với ID: ${notifRef.id}');
+
+      print('Đã lưu thông báo với ID: ${notifRef.id}');
     } catch (e) {
       print('Lỗi khi gửi thông báo: $e');
       throw e;
@@ -218,6 +264,24 @@ class NotificationService {
       'timestamp': FieldValue.serverTimestamp(),
       'title': 'Yêu cầu thanh toán',
       'body': 'Bàn $tableId yêu cầu thanh toán: ${amount.toStringAsFixed(0)}đ'
+    });
+  }
+
+  // Thông báo khi món ăn bị xóa
+  Future<void> sendItemDeletedNotification(
+      {required String tableId,
+      required String orderId,
+      required String itemName}) async {
+    await _firestore.collection('notifications').add({
+      'type': 'item_deleted',
+      'targetRole': 'kitchen',
+      'tableId': tableId,
+      'orderId': orderId,
+      'itemName': itemName,
+      'status': 'unread',
+      'timestamp': FieldValue.serverTimestamp(),
+      'title': 'Món ăn đã bị xóa',
+      'body': '$itemName - Bàn $tableId đã bị xóa khỏi đơn hàng'
     });
   }
 

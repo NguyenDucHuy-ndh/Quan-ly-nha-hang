@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quanly_nhahang/models/order.dart' as restaurant_order;
 import 'package:quanly_nhahang/models/order_item.dart';
+import 'package:quanly_nhahang/services/order_service.dart';
+import 'package:quanly_nhahang/services/notifications_service.dart';
 
 class CartScreen extends StatefulWidget {
   final String tableId;
@@ -165,6 +167,17 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => _requestPayment(order.id),
+                      icon: const Icon(Icons.payment),
+                      label: const Text('Gửi yêu cầu thanh toán'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
                   ],
                 );
               },
@@ -214,6 +227,7 @@ class _CartScreenState extends State<CartScreen> {
       final itemData = itemDoc.data() as Map<String, dynamic>;
       final price = itemData['price'] as double;
       final quantity = itemData['quantity'] as int;
+      final itemName = itemData['name'] as String;
 
       // Xóa món
       await FirebaseFirestore.instance
@@ -231,10 +245,77 @@ class _CartScreenState extends State<CartScreen> {
         'totalAmount': FieldValue.increment(-(price * quantity)),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Gửi thông báo đến nhà bếp
+      await NotificationService.instance.sendItemDeletedNotification(
+        tableId: widget.tableId,
+        orderId: widget.currentOrderId!,
+        itemName: itemName,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi khi xóa món: $e')),
+        );
+      }
+    }
+  } // Xử lý gửi yêu cầu thanh toán
+
+  Future<void> _requestPayment(String orderId) async {
+    try {
+      // Hiển thị dialog xác nhận
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Xác nhận'),
+          content: const Text('Bạn có chắc chắn muốn gửi yêu cầu thanh toán?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Xác nhận'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      // Hiển thị loading indicator
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Gửi yêu cầu thanh toán sử dụng OrderService
+      await OrderService.requestPayment(
+        tableId: widget.tableId,
+        orderId: orderId,
+      );
+
+      // Đóng loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+
+        // Hiển thị thông báo thành công
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã gửi yêu cầu thanh toán đến thu ngân'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // Đóng loading dialog nếu có lỗi
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
         );
       }
     }

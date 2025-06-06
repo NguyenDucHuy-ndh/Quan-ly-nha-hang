@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:quanly_nhahang/models/order.dart' as restaurant_order;
 import 'package:quanly_nhahang/models/table.dart' as restaurant_table;
 import 'package:quanly_nhahang/models/order_item.dart';
+import 'package:quanly_nhahang/services/notifications_service.dart';
 
 class CashierScreen extends StatefulWidget {
   const CashierScreen({super.key});
@@ -12,6 +13,38 @@ class CashierScreen extends StatefulWidget {
 }
 
 class _CashierScreenState extends State<CashierScreen> {
+  int _unreadNotificationsCount = 0;
+  Stream<QuerySnapshot>? _notificationsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Thiết lập role cho NotificationService
+    _setupNotifications();
+    // Lắng nghe các thông báo mới
+    _listenForNotifications();
+  }
+
+  Future<void> _setupNotifications() async {
+    await NotificationService.instance
+        .setCurrentRole(NotificationService.ROLE_CASHIER);
+  }
+
+  void _listenForNotifications() {
+    _notificationsStream = FirebaseFirestore.instance
+        .collection('notifications')
+        .where('targetRole', isEqualTo: 'cashier')
+        .where('status', isEqualTo: 'unread')
+        // Removed orderBy to fix Firestore index error
+        .snapshots();
+
+    _notificationsStream?.listen((snapshot) {
+      setState(() {
+        _unreadNotificationsCount = snapshot.docs.length;
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -19,6 +52,43 @@ class _CashierScreenState extends State<CashierScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Quản lý thanh toán'),
+          actions: [
+            // Hiển thị biểu tượng thông báo với số lượng
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: () => _showNotifications(context),
+                ),
+                if (_unreadNotificationsCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$_unreadNotificationsCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.payment), text: 'Chờ thanh toán'),
@@ -129,6 +199,13 @@ class _CashierScreenState extends State<CashierScreen> {
 
   Widget _buildOrderCard(restaurant_order.Order order) {
     return Card(
+      // Thêm border màu nếu có yêu cầu thanh toán
+      shape: order.paymentRequested
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Colors.amber, width: 2),
+            )
+          : null,
       child: InkWell(
         onTap: () => _showPaymentDetails(order),
         child: Padding(
@@ -139,7 +216,29 @@ class _CashierScreenState extends State<CashierScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTableInfo(order.tableId),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: _buildTableInfo(order.tableId)),
+                  // Hiển thị icon thanh toán nếu có yêu cầu
+                  if (order.paymentRequested)
+                    Tooltip(
+                      message: 'Yêu cầu thanh toán',
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.payment,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const Divider(),
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -198,6 +297,199 @@ class _CashierScreenState extends State<CashierScreen> {
             PaymentDetailsSheet(order: order),
       ),
     );
+  }
+
+  // Thêm phương thức hiển thị thông báo
+  void _showNotifications(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Thông báo'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Thêm nút "Đánh dấu tất cả đã đọc"
+                TextButton(
+                  onPressed: () {
+                    _markAllNotificationsAsRead();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Đánh dấu tất cả đã đọc'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: _buildNotificationsList(),
+        ),
+      ),
+    );
+  }
+
+  // Phương thức đánh dấu tất cả thông báo là đã đọc
+  Future<void> _markAllNotificationsAsRead() async {
+    try {
+      // Lấy tất cả thông báo chưa đọc
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'cashier')
+          .where('status', isEqualTo: 'unread')
+          .get();
+
+      // Cập nhật từng thông báo
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in querySnapshot.docs) {
+        batch.update(doc.reference, {'status': 'read'});
+      }
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tất cả thông báo đã được đánh dấu là đã đọc'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  // Widget danh sách thông báo
+  Widget _buildNotificationsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetRole', isEqualTo: 'cashier')
+          // Bỏ orderBy để tránh lỗi index
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Lỗi: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text('Không có thông báo nào'),
+          );
+        }
+
+        // Sắp xếp thông báo ở client, hiển thị mới nhất đầu tiên
+        final notifications = snapshot.data!.docs;
+        notifications.sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+          final aTimestamp = aData['timestamp'] as Timestamp?;
+          final bTimestamp = bData['timestamp'] as Timestamp?;
+
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+
+          // Sắp xếp giảm dần (mới nhất trước)
+          return bTimestamp.compareTo(aTimestamp);
+        });
+
+        return ListView.builder(
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            final data = notification.data() as Map<String, dynamic>;
+            final isUnread = data['status'] == 'unread';
+
+            return ListTile(
+              title: Text(
+                data['title'] as String? ?? 'Thông báo mới',
+                style: TextStyle(
+                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(data['body'] as String? ?? ''),
+              leading: CircleAvatar(
+                backgroundColor: Colors.amber,
+                child: Icon(
+                  data['type'] == 'payment_request'
+                      ? Icons.payment
+                      : Icons.notifications,
+                  color: Colors.white,
+                ),
+              ),
+              trailing: Text(
+                _formatTimestamp(data['timestamp'] as Timestamp),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isUnread ? Colors.blue : Colors.grey,
+                ),
+              ),
+              tileColor: isUnread ? Colors.blue.withOpacity(0.1) : null,
+              onTap: () {
+                // Đánh dấu thông báo là đã đọc
+                if (isUnread) {
+                  FirebaseFirestore.instance
+                      .collection('notifications')
+                      .doc(notification.id)
+                      .update({'status': 'read'});
+                }
+
+                // Nếu là yêu cầu thanh toán, mở chi tiết đơn hàng
+                if (data['type'] == 'payment_request') {
+                  _handlePaymentRequest(
+                      data['tableId'] as String, data['orderId'] as String);
+                }
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Xử lý khi nhấn vào thông báo yêu cầu thanh toán
+  void _handlePaymentRequest(String tableId, String orderId) {
+    // Đóng dialog thông báo
+    Navigator.pop(context);
+
+    // Lấy thông tin đơn hàng và hiển thị chi tiết
+    FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .get()
+        .then((doc) {
+      if (doc.exists) {
+        final order = restaurant_order.Order.fromMap(
+            doc.data() as Map<String, dynamic>, doc.id);
+        _showPaymentDetails(order);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy đơn hàng này')),
+        );
+      }
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi tải đơn hàng: $error')),
+      );
+    });
+  }
+
+  // Định dạng thời gian
+  String _formatTimestamp(Timestamp timestamp) {
+    final dateTime = timestamp.toDate();
+    return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.day}/${dateTime.month}';
   }
 }
 
